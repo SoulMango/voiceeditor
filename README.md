@@ -180,3 +180,8 @@ Backend (separation.py)
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+If you redistribute or use this project in derivative works, please include the following attribution:
+
+> Original project: **VoiceEditor** by [chadingTV](https://github.com/chadingTV)
+> https://github.com/chadingTV/voiceeditor
