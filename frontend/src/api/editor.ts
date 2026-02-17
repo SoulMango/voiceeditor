@@ -1,8 +1,9 @@
 import api from './client';
 import type { Segment } from '../types/editor';
 
-export async function fetchSegments(projectId: string): Promise<Segment[]> {
-  const { data } = await api.get(`/editor/${projectId}/segments`);
+export async function fetchSegments(projectId: string, audioId?: string): Promise<Segment[]> {
+  const params = audioId ? { audio_id: audioId } : {};
+  const { data } = await api.get(`/editor/${projectId}/segments`, { params });
   return data;
 }
 
@@ -24,7 +25,7 @@ export async function reorderSegments(projectId: string, segmentIds: string[]): 
   await api.put(`/editor/${projectId}/segments/reorder`, { segment_ids: segmentIds });
 }
 
-export async function exportSegments(projectId: string, format = 'wav', stem = 'original'): Promise<{ task_id: string }> {
-  const { data } = await api.post(`/editor/${projectId}/export`, { format, stem });
+export async function exportSegments(projectId: string, audioId: string, format = 'wav', stem = 'original'): Promise<{ task_id: string }> {
+  const { data } = await api.post(`/editor/${projectId}/export`, { audio_id: audioId, format, stem });
   return data;
 }

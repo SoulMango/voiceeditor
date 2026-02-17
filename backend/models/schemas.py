@@ -128,6 +128,7 @@ class SegmentReorderRequest(BaseModel):
 # --- Export ---
 
 class ExportRequest(BaseModel):
+    audio_id: str
     format: str = "wav"
     stem: str = "original"
 

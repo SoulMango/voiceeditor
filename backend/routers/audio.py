@@ -193,6 +193,21 @@ async def get_waveform(audio_id: str, db: AsyncSession = Depends(get_db)):
     return json.loads(waveform_path.read_text())
 
 
+@router.patch("/audio/{audio_id}")
+async def update_audio(audio_id: str, body: dict, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(AudioFile).where(AudioFile.id == audio_id))
+    audio = result.scalar_one_or_none()
+    if not audio:
+        raise HTTPException(404, "Audio not found")
+
+    if "original_name" in body:
+        audio.original_name = body["original_name"]
+
+    await db.commit()
+    await db.refresh(audio)
+    return {"id": audio.id, "original_name": audio.original_name}
+
+
 @router.delete("/audio/{audio_id}", status_code=204)
 async def delete_audio(audio_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(AudioFile).where(AudioFile.id == audio_id))

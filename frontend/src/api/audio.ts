@@ -33,6 +33,14 @@ export function getAudioFileUrl(audioId: string): string {
   return `/api/audio/${audioId}/file`;
 }
 
+export async function renameAudio(audioId: string, name: string): Promise<void> {
+  await api.patch(`/audio/${audioId}`, { original_name: name });
+}
+
+export async function deleteAudio(audioId: string): Promise<void> {
+  await api.delete(`/audio/${audioId}`);
+}
+
 export async function fetchTaskStatus(taskId: string): Promise<TaskStatus> {
   const { data } = await api.get(`/tasks/${taskId}`);
   return data;

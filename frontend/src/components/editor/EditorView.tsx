@@ -117,9 +117,9 @@ export default function EditorView() {
 
   // Load segments
   useEffect(() => {
-    if (!projectId) return;
-    fetchSegments(projectId).then((segs) => store.setSegments(segs));
-  }, [projectId]);
+    if (!projectId || !audioId) return;
+    fetchSegments(projectId, audioId).then((segs) => store.setSegments(segs));
+  }, [projectId, audioId]);
 
   // Load transcript if available
   useEffect(() => {
@@ -351,6 +351,7 @@ export default function EditorView() {
             onDelete={handleDeleteSegment}
             onReorder={handleReorder}
             projectId={projectId!}
+            audioId={audioId!}
           />
         </div>
       </div>

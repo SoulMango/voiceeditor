@@ -1,6 +1,7 @@
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -13,15 +14,53 @@ from models.database import AudioFile, get_db
 
 router = APIRouter(prefix="/api/separation", tags=["separation"])
 
-# Path to demucs venv python (Python 3.11 compatible)
-DEMUCS_PYTHON = str(BASE_DIR / ".venv-demucs" / "bin" / "python3")
+
+def _find_demucs_python() -> str:
+    """Find the Python executable that can run demucs.
+
+    Strategy:
+    1. If a separate .venv-demucs exists, use its python (for Python 3.14+ hosts)
+    2. Otherwise, try the main venv python (Python 3.11~3.13 can run demucs directly)
+    3. Fall back to system python3
+    """
+    # Check separate demucs venv first
+    demucs_venv = BASE_DIR / ".venv-demucs" / "bin" / "python3"
+    if demucs_venv.exists():
+        return str(demucs_venv)
+
+    # Check if current python can import demucs
+    try:
+        subprocess.run(
+            [sys.executable, "-c", "import demucs"],
+            capture_output=True, check=True,
+        )
+        return sys.executable
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+    raise RuntimeError(
+        "Demucs not found. Run ./scripts/setup.sh or install demucs manually. "
+        "If Python 3.14+, a separate .venv-demucs with Python 3.11~3.13 is required."
+    )
+
+
+# Lazy-initialized on first use
+_demucs_python: str | None = None
+
+
+def _get_demucs_python() -> str:
+    global _demucs_python
+    if _demucs_python is None:
+        _demucs_python = _find_demucs_python()
+    return _demucs_python
 
 
 def _separate_sync(audio_path: str, output_dir: str, audio_id: str, model_name: str) -> list[str]:
-    """Run demucs via subprocess using the dedicated venv."""
+    """Run demucs via subprocess."""
+    python = _get_demucs_python()
     result = subprocess.run(
         [
-            DEMUCS_PYTHON, "-m", "demucs",
+            python, "-m", "demucs",
             "--two-stems", "vocals",
             "-n", model_name,
             "-o", output_dir,
@@ -70,6 +109,12 @@ async def start_separation(req: dict, db: AsyncSession = Depends(get_db)):
     audio = result.scalar_one_or_none()
     if not audio:
         raise HTTPException(404, "Audio not found")
+
+    # Check demucs availability before starting task
+    try:
+        _get_demucs_python()
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
 
     audio_path = str(PROJECTS_DIR / audio.project_id / "original" / audio.filename)
     output_dir = str(PROJECTS_DIR / audio.project_id / "separated")

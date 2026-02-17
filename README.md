@@ -29,11 +29,13 @@
 
 ## 사전 요구사항
 
-- Python 3.12+ (메인 백엔드)
-- Python 3.11 (Demucs 배경음 제거용 — `brew install python@3.11`)
+- Python 3.11~3.13 (권장) 또는 Python 3.14+ (Demucs용 별도 Python 3.11~3.13 필요)
 - Node.js 18+
-- ffmpeg (`brew install ffmpeg`)
+- ffmpeg (`brew install ffmpeg` / `sudo apt install ffmpeg`)
 - BlackHole (macOS 시스템 오디오 녹음 시 필요 — [다운로드](https://existential.audio/blackhole/))
+
+> **Python 버전 참고**: Python 3.11~3.13을 사용하면 단일 venv로 모든 의존성(demucs 포함)이 설치됩니다.
+> Python 3.14+는 demucs와 호환되지 않아, setup 스크립트가 자동으로 별도 venv를 구성합니다.
 
 ## 빠른 시작
 
@@ -46,11 +48,12 @@ cd voiceeditor
 ```
 
 설치 스크립트가 자동으로 수행하는 작업:
-1. 사전 요구사항 체크 (python3, node, npm, ffmpeg, python3.11)
-2. Backend Python venv 생성 및 패키지 설치
-3. Demucs 전용 Python 3.11 venv 생성 및 패키지 설치
-4. Frontend npm 패키지 설치
-5. 데이터 디렉토리 생성
+1. 사전 요구사항 체크 (python3, node, npm, ffmpeg)
+2. Python 버전 감지 → 단일 venv 또는 별도 demucs venv 자동 결정
+3. Backend Python venv 생성 및 패키지 설치
+4. (Python 3.14+일 경우) Demucs 전용 venv 생성 및 패키지 설치
+5. SwitchAudioSource 설치 (macOS, 시스템 녹음용)
+6. Frontend npm 패키지 설치
 
 ### 실행
 
@@ -150,19 +153,22 @@ voiceeditor/
 
 ## 아키텍처 참고
 
-### Demucs 별도 venv 구조
+### Demucs 실행 방식
 
-Demucs와 관련 ML 라이브러리(torch, torchaudio 등)는 Python 3.14와 호환되지 않습니다.
-이를 해결하기 위해 Python 3.11 기반의 별도 가상환경(`.venv-demucs`)을 사용하고,
-메인 백엔드에서 `subprocess`로 호출하는 방식으로 동작합니다.
+Demucs는 항상 subprocess로 실행됩니다. Python 버전에 따라 자동으로 경로를 결정합니다:
+
+| 시스템 Python | Demucs 실행 방식 |
+|---------------|-----------------|
+| 3.11~3.13 | 메인 venv의 python으로 직접 실행 (단일 venv) |
+| 3.14+ | `.venv-demucs`의 별도 python으로 실행 (이중 venv) |
 
 ```
-메인 백엔드 (.venv, Python 3.12+)
+백엔드 (separation.py)
     │
-    ├── subprocess.run()
+    ├── _find_demucs_python()  ← 자동 감지
     │       │
-    │       └── .venv-demucs/bin/python3 -m demucs ...
-    │           (Python 3.11 + demucs + torchcodec)
+    │       ├── .venv-demucs 존재? → .venv-demucs/bin/python3
+    │       └── 없으면 → 현재 python에서 demucs import 시도
     │
-    └── 결과 WAV 파일 읽기
+    └── subprocess.run([python, "-m", "demucs", ...])
 ```

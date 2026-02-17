@@ -1,9 +1,54 @@
 import uuid
+import subprocess
 import threading
 
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
+
+
+def _get_current_output() -> str | None:
+    """Get current default output device name via SwitchAudioSource."""
+    try:
+        result = subprocess.run(
+            ["SwitchAudioSource", "-c", "-t", "output"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except FileNotFoundError:
+        pass
+    return None
+
+
+def _set_output(device_name: str) -> bool:
+    """Set default output device via SwitchAudioSource."""
+    try:
+        result = subprocess.run(
+            ["SwitchAudioSource", "-s", device_name, "-t", "output"],
+            capture_output=True, text=True,
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+
+
+def _find_multi_output() -> str | None:
+    """Find a multi-output device that includes BlackHole."""
+    try:
+        result = subprocess.run(
+            ["SwitchAudioSource", "-a", "-t", "output"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            for name in result.stdout.strip().split("\n"):
+                name = name.strip()
+                # Match common multi-output device names (Korean/English)
+                if any(kw in name.lower() for kw in ["multi-output", "다중 출력"]):
+                    return name
+    except FileNotFoundError:
+        pass
+    return None
 
 
 class RecordingSession:
@@ -50,6 +95,7 @@ class RecordingSession:
 class SystemRecorder:
     def __init__(self):
         self._recordings: dict[str, RecordingSession] = {}
+        self._previous_output: str | None = None
 
     def find_device(self, name: str = "BlackHole") -> int:
         devices = sd.query_devices()
@@ -68,6 +114,12 @@ class SystemRecorder:
         samplerate = int(device_info["default_samplerate"])
         channels = min(2, int(device_info["max_input_channels"]))
 
+        # Switch system output to multi-output device (speaker + BlackHole)
+        self._previous_output = _get_current_output()
+        multi_output = _find_multi_output()
+        if multi_output:
+            _set_output(multi_output)
+
         recording_id = str(uuid.uuid4())
         session = RecordingSession(output_path, samplerate, channels, device_idx)
         session.start()
@@ -79,6 +131,12 @@ class SystemRecorder:
         if not session:
             raise ValueError(f"Recording {recording_id} not found")
         session.stop()
+
+        # Restore previous output device
+        if self._previous_output:
+            _set_output(self._previous_output)
+            self._previous_output = None
+
         return session.output_path
 
 

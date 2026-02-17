@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
-import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { useCallback, useState, useEffect } from 'react';
+import { DndContext, closestCenter, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Play, Trash2, GripVertical, Download } from 'lucide-react';
+import { Play, Trash2, GripVertical, Download, Loader2 } from 'lucide-react';
 import { useEditorStore } from '../../stores/editorStore';
 import { exportSegments } from '../../api/editor';
+import { useTaskPolling } from '../../hooks/useTaskPolling';
 import type { Segment } from '../../types/editor';
 
 function formatTime(s: number): string {
@@ -67,14 +68,23 @@ export default function SegmentTimeline({
   onDelete,
   onReorder,
   projectId,
+  audioId,
 }: {
   onPlay: (start: number, end: number) => void;
   onDelete: (id: string) => void;
   onReorder: (ids: string[]) => void;
   projectId: string;
+  audioId: string;
 }) {
-  const { segments } = useEditorStore();
+  const { segments, activeStem } = useEditorStore();
   const sorted = [...segments].sort((a, b) => a.sort_order - b.sort_order);
+  const [exportTaskId, setExportTaskId] = useState<string | null>(null);
+  const exportTask = useTaskPolling(exportTaskId);
+
+  // Require 5px drag distance before activating — prevents click hijack on buttons
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -92,10 +102,33 @@ export default function SegmentTimeline({
   );
 
   const handleExport = async () => {
-    const { task_id } = await exportSegments(projectId, 'wav');
-    // TODO: poll task and download when ready
-    alert(`Export started. Task ID: ${task_id}`);
+    try {
+      const { task_id } = await exportSegments(projectId, audioId, 'wav', activeStem);
+      setExportTaskId(task_id);
+    } catch (e) {
+      alert(`Export failed: ${e}`);
+    }
   };
+
+  // Handle export task completion
+  useEffect(() => {
+    if (exportTask?.status === 'completed' && exportTaskId) {
+      const taskId = exportTaskId;
+      setExportTaskId(null);
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = `/api/editor/${projectId}/export/${taskId}`;
+      link.download = 'export.wav';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (exportTask?.status === 'failed' && exportTaskId) {
+      setExportTaskId(null);
+      alert(`Export failed: ${exportTask.error ?? 'Unknown error'}`);
+    }
+  }, [exportTask?.status]);
+
+  const isExporting = !!exportTaskId;
 
   return (
     <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-4 h-full flex flex-col">
@@ -104,13 +137,19 @@ export default function SegmentTimeline({
           Segments ({sorted.length})
         </h3>
         {sorted.length > 0 && (
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--color-accent)] text-white rounded hover:bg-[var(--color-accent-hover)]"
-          >
-            <Download className="w-3 h-3" />
-            Export
-          </button>
+          isExporting ? (
+            <span className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]">
+              <Loader2 className="w-3 h-3 animate-spin" /> Exporting...
+            </span>
+          ) : (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--color-accent)] text-white rounded hover:bg-[var(--color-accent-hover)]"
+            >
+              <Download className="w-3 h-3" />
+              Export
+            </button>
+          )
         )}
       </div>
 
@@ -120,7 +159,7 @@ export default function SegmentTimeline({
         </p>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-2">
-          <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={sorted.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               {sorted.map((seg) => (
                 <SortableSegmentCard key={seg.id} segment={seg} onPlay={onPlay} onDelete={onDelete} />

@@ -14,12 +14,11 @@ router = APIRouter(prefix="/api/editor", tags=["editor"])
 
 
 @router.get("/{project_id}/segments", response_model=list[SegmentResponse])
-async def list_segments(project_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Segment)
-        .where(Segment.project_id == project_id)
-        .order_by(Segment.sort_order)
-    )
+async def list_segments(project_id: str, audio_id: str | None = None, db: AsyncSession = Depends(get_db)):
+    query = select(Segment).where(Segment.project_id == project_id)
+    if audio_id:
+        query = query.where(Segment.audio_id == audio_id)
+    result = await db.execute(query.order_by(Segment.sort_order))
     return result.scalars().all()
 
 
@@ -107,47 +106,44 @@ async def export_segments(project_id: str, data: ExportRequest, db: AsyncSession
     from tasks.background import task_manager
     from services.audio_processor import cut_and_concat
 
+    # Fetch segments sorted by sort_order
     result = await db.execute(
         select(Segment)
-        .where(Segment.project_id == project_id)
+        .where(Segment.project_id == project_id, Segment.audio_id == data.audio_id)
         .order_by(Segment.sort_order)
     )
     segments = result.scalars().all()
     if not segments:
         raise HTTPException(400, "No segments to export")
 
+    # Resolve source audio path now (not in background task)
+    audio_result = await db.execute(
+        select(AudioFile).where(AudioFile.id == data.audio_id)
+    )
+    audio = audio_result.scalar_one_or_none()
+    if not audio:
+        raise HTTPException(404, "Audio not found")
+
+    if data.stem != "original":
+        source_path = str(PROJECTS_DIR / audio.project_id / "separated" / f"{data.audio_id}_{data.stem}.wav")
+    else:
+        source_path = str(PROJECTS_DIR / audio.project_id / "original" / audio.filename)
+
+    # Extract segment data now, respecting sort_order
+    seg_list = [{"start_time": seg.start_time, "end_time": seg.end_time} for seg in segments]
+
+    export_dir = PROJECTS_DIR / project_id / "exports"
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = {"wav": "wav", "mp3": "mp3", "flac": "flac"}.get(data.format, "wav")
+
     task = task_manager.create_task()
+    export_path = str(export_dir / f"export_{task.id}.{ext}")
 
     async def do_export():
-        seg_list = []
-        source_path = None
-
-        for seg in segments:
-            if source_path is None:
-                audio_result = await db.execute(
-                    select(AudioFile).where(AudioFile.id == seg.audio_id)
-                )
-                audio = audio_result.scalar_one_or_none()
-                if not audio:
-                    raise ValueError(f"Audio {seg.audio_id} not found")
-
-                if data.stem != "original":
-                    source_path = str(PROJECTS_DIR / audio.project_id / "separated" / f"{seg.audio_id}_{data.stem}.wav")
-                else:
-                    source_path = str(PROJECTS_DIR / audio.project_id / "original" / audio.filename)
-
-            seg_list.append({"start_time": seg.start_time, "end_time": seg.end_time})
-
-        export_dir = PROJECTS_DIR / project_id / "exports"
-        export_dir.mkdir(parents=True, exist_ok=True)
-
-        ext = {"wav": "wav", "mp3": "mp3", "flac": "flac"}.get(data.format, "wav")
-        export_path = str(export_dir / f"export_{task.id}.{ext}")
-
         await task_manager.run_in_thread(
             cut_and_concat, source_path, seg_list, export_path, data.format
         )
-
         return {"export_path": export_path, "filename": f"export.{ext}"}
 
     task_manager.run_in_background(task, do_export())
