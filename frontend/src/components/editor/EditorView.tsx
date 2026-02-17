@@ -52,6 +52,11 @@ export default function EditorView() {
     }
   }, [currentProject, audioId]);
 
+  // Reset store on unmount only
+  useEffect(() => {
+    return () => { store.reset(); };
+  }, []);
+
   // Initialize wavesurfer
   useEffect(() => {
     if (!waveformRef.current || !audioId) return;
@@ -107,7 +112,6 @@ export default function EditorView() {
       ws.destroy();
       wsRef.current = null;
       regionsRef.current = null;
-      store.reset();
     };
   }, [audioId, store.activeStem]);
 

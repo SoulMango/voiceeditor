@@ -9,9 +9,10 @@
 - **파일 업로드** — 로컬 오디오 파일 드래그 앤 드롭 업로드
 - **STT (음성→텍스트)** — faster-whisper 기반 단어별 타임스탬프 생성
 - **파형+텍스트 동기화 편집** — wavesurfer.js 파형 표시, 단어 단위 하이라이트, 클릭으로 탐색
+- **텍스트 편집** — 세그먼트별 텍스트 인라인 수정 가능
 - **세그먼트 자르기/붙이기** — 파형에서 영역 선택 → 자르기 → 드래그로 재배치
-- **배경음 제거** — Demucs AI 모델로 보컬/배경음 분리
-- **내보내기** — WAV/MP3 내보내기, 텍스트 TXT/SRT 다운로드
+- **배경음 제거** — Demucs AI 모델로 보컬/배경음 분리, stem 선택 재생
+- **내보내기** — WAV/MP3 오디오 내보내기, 텍스트 TXT/SRT 다운로드
 
 ## 기술 스택
 
@@ -22,53 +23,78 @@
 | 상태관리 | Zustand |
 | 오디오 처리 | yt-dlp, sounddevice, pydub, ffmpeg |
 | STT | faster-whisper (word_timestamps) |
-| 음원 분리 | Demucs (htdemucs, Python 3.11 별도 venv) |
+| 음원 분리 | Demucs (htdemucs, Python 3.11 별도 venv + torchcodec) |
 | 파형 | wavesurfer.js + RegionsPlugin |
 | 드래그앤드롭 | @dnd-kit/core + @dnd-kit/sortable |
 
 ## 사전 요구사항
 
-- Python 3.12+
+- Python 3.12+ (메인 백엔드)
+- Python 3.11 (Demucs 배경음 제거용 — `brew install python@3.11`)
 - Node.js 18+
-- ffmpeg
-- BlackHole (macOS 시스템 오디오 녹음 시 필요)
-- Python 3.11 (Demucs용 별도 venv)
+- ffmpeg (`brew install ffmpeg`)
+- BlackHole (macOS 시스템 오디오 녹음 시 필요 — [다운로드](https://existential.audio/blackhole/))
 
-## 설치 및 실행
+## 빠른 시작
 
-### Backend
+### 자동 설치
+
+```bash
+git clone https://github.com/chadingTV/voiceeditor.git
+cd voiceeditor
+./scripts/setup.sh
+```
+
+설치 스크립트가 자동으로 수행하는 작업:
+1. 사전 요구사항 체크 (python3, node, npm, ffmpeg, python3.11)
+2. Backend Python venv 생성 및 패키지 설치
+3. Demucs 전용 Python 3.11 venv 생성 및 패키지 설치
+4. Frontend npm 패키지 설치
+5. 데이터 디렉토리 생성
+
+### 실행
+
+```bash
+# 백엔드 + 프론트엔드 동시 실행
+./scripts/dev.sh
+```
+
+브라우저에서 `http://localhost:5173` 으로 접속합니다.
+
+### 수동 설치
+
+<details>
+<summary>수동으로 설치하려면 여기를 클릭</summary>
+
+#### Backend
 
 ```bash
 cd backend
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Demucs 별도 환경 (Python 3.11 필요)
+#### Demucs 별도 환경 (Python 3.11 필요)
 
 ```bash
 cd backend
 python3.11 -m venv .venv-demucs
 source .venv-demucs/bin/activate
-pip install demucs
+pip install -r requirements-demucs.txt
 deactivate
 ```
 
-### Frontend
+#### Frontend
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 실행
+#### 개별 실행
 
 ```bash
-# 동시 실행
-./scripts/dev.sh
-
-# 또는 개별 실행
 # Backend
 cd backend && source .venv/bin/activate && uvicorn main:app --reload --port 8000
 
@@ -76,41 +102,67 @@ cd backend && source .venv/bin/activate && uvicorn main:app --reload --port 8000
 cd frontend && npm run dev
 ```
 
-브라우저에서 `http://localhost:5173` 으로 접속합니다.
+</details>
 
 ## 프로젝트 구조
 
 ```
 voiceeditor/
 ├── backend/
-│   ├── main.py              # FastAPI 앱
-│   ├── config.py            # 설정
-│   ├── routers/             # API 라우터
-│   │   ├── projects.py      # 프로젝트 CRUD
-│   │   ├── audio.py         # 오디오 수집 (YouTube/업로드/녹음)
-│   │   ├── transcription.py # STT
-│   │   ├── separation.py    # 배경음 제거
-│   │   └── editor.py        # 세그먼트 편집/내보내기
-│   ├── services/            # 비즈니스 로직
-│   ├── models/              # DB 모델 & 스키마
-│   └── tasks/               # 백그라운드 태스크
+│   ├── main.py                  # FastAPI 앱
+│   ├── config.py                # 설정
+│   ├── requirements.txt         # 메인 백엔드 의존성
+│   ├── requirements-demucs.txt  # Demucs 전용 의존성
+│   ├── routers/                 # API 라우터
+│   │   ├── projects.py          # 프로젝트 CRUD
+│   │   ├── audio.py             # 오디오 수집 (YouTube/업로드/녹음)
+│   │   ├── transcription.py     # STT + 텍스트 편집 + TXT/SRT 다운로드
+│   │   ├── separation.py        # 배경음 제거 (Demucs subprocess)
+│   │   └── editor.py            # 세그먼트 편집/내보내기
+│   ├── services/                # 비즈니스 로직
+│   ├── models/                  # DB 모델 & 스키마
+│   └── tasks/                   # 백그라운드 태스크
 ├── frontend/
 │   └── src/
-│       ├── api/             # API 클라이언트
-│       ├── stores/          # Zustand 스토어
-│       ├── components/      # React 컴포넌트
-│       ├── hooks/           # 커스텀 훅
-│       └── types/           # TypeScript 타입
+│       ├── api/                 # API 클라이언트
+│       ├── stores/              # Zustand 스토어
+│       ├── components/
+│       │   ├── layout/          # AppShell, Header, Sidebar
+│       │   ├── import/          # YouTube, 업로드, 녹음 UI
+│       │   └── editor/          # 파형 편집기, 텍스트 패널, 세그먼트 타임라인
+│       ├── hooks/               # 커스텀 훅
+│       └── types/               # TypeScript 타입
 └── scripts/
-    └── dev.sh               # 개발 서버 실행
+    ├── setup.sh                 # 자동 설치 스크립트
+    └── dev.sh                   # 개발 서버 실행
 ```
 
 ## 사용 방법
 
-1. 프로젝트 생성
-2. YouTube URL 입력 또는 파일 업로드로 오디오 수집
-3. "Generate STT" 버튼으로 텍스트 생성
-4. 파형에서 영역 선택 → "Cut Selection"으로 세그먼트 생성
-5. 세그먼트를 드래그하여 원하는 순서로 재배치
-6. "Export" 버튼으로 최종 오디오 내보내기
-7. 필요시 "Remove Background" 버튼으로 배경음 제거 후 보컬 트랙에서 편집
+1. **프로젝트 생성** — 사이드바에서 새 프로젝트 만들기
+2. **오디오 수집** — YouTube URL 입력, 파일 업로드, 또는 시스템 오디오 녹음
+3. **STT 생성** — 편집기에서 "Generate STT" 버튼 클릭
+4. **텍스트 확인/수정** — 세그먼트별 텍스트를 클릭하여 인라인 편집
+5. **세그먼트 자르기** — 파형에서 영역 드래그 선택 → "Cut Selection"
+6. **순서 변경** — 세그먼트 타임라인에서 드래그로 재배치
+7. **배경음 제거** — "Remove Background" 버튼 → 보컬/배경음 stem 선택 드롭다운
+8. **내보내기** — 오디오(WAV/MP3), 텍스트(TXT/SRT) 다운로드
+
+## 아키텍처 참고
+
+### Demucs 별도 venv 구조
+
+Demucs와 관련 ML 라이브러리(torch, torchaudio 등)는 Python 3.14와 호환되지 않습니다.
+이를 해결하기 위해 Python 3.11 기반의 별도 가상환경(`.venv-demucs`)을 사용하고,
+메인 백엔드에서 `subprocess`로 호출하는 방식으로 동작합니다.
+
+```
+메인 백엔드 (.venv, Python 3.12+)
+    │
+    ├── subprocess.run()
+    │       │
+    │       └── .venv-demucs/bin/python3 -m demucs ...
+    │           (Python 3.11 + demucs + torchcodec)
+    │
+    └── 결과 WAV 파일 읽기
+```
