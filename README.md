@@ -177,6 +177,30 @@ Backend (separation.py)
     └── subprocess.run([python, "-m", "demucs", ...])
 ```
 
+## Changelog
+
+### Bug Fixes
+- **Stem selector reset** — Switching between Original/Vocals/No Vocals no longer resets to Original
+- **Export wrong audio** — Export now correctly uses the current audio file, not the first one in the project
+- **Export ignoring reorder** — Exported audio now respects the drag-and-drop segment order
+- **Export ignoring active stem** — Exporting in Vocals mode now exports vocals only, not the original
+- **pydub crash on Python 3.14** — Replaced pydub (broken `audioop` module) with direct ffmpeg subprocess
+- **Demucs torchcodec missing** — Added torchcodec to demucs dependencies for audio saving
+- **System recording silence** — Auto-switch to multi-output device when recording starts
+- **Audio output stuck on multi-output** — Fallback to built-in speaker when previous output device is disconnected
+- **Audio output not restored on crash** — Added atexit handler to restore output on server shutdown
+- **DndContext hijacking clicks** — Added pointer distance threshold so buttons work alongside drag-and-drop
+- **Transcript edit not displaying** — Edited text now correctly shown instead of original words
+- **Download encoding error** — Fixed Korean filename encoding in Content-Disposition header (RFC 5987)
+- **STT infinite loading** — Added error handling for failed background tasks
+
+### Features Added
+- Audio file rename (inline edit) and delete
+- Transcript download in TXT and SRT formats
+- Audio file download
+- Automated setup script with Python version detection
+- Cross-platform Demucs path auto-detection
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
