@@ -1,3 +1,4 @@
+import atexit
 import uuid
 import subprocess
 import threading
@@ -21,6 +22,20 @@ def _get_current_output() -> str | None:
     return None
 
 
+def _get_available_outputs() -> list[str]:
+    """List all available output device names."""
+    try:
+        result = subprocess.run(
+            ["SwitchAudioSource", "-a", "-t", "output"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            return [name.strip() for name in result.stdout.strip().split("\n") if name.strip()]
+    except FileNotFoundError:
+        pass
+    return []
+
+
 def _set_output(device_name: str) -> bool:
     """Set default output device via SwitchAudioSource."""
     try:
@@ -35,20 +50,38 @@ def _set_output(device_name: str) -> bool:
 
 def _find_multi_output() -> str | None:
     """Find a multi-output device that includes BlackHole."""
-    try:
-        result = subprocess.run(
-            ["SwitchAudioSource", "-a", "-t", "output"],
-            capture_output=True, text=True,
-        )
-        if result.returncode == 0:
-            for name in result.stdout.strip().split("\n"):
-                name = name.strip()
-                # Match common multi-output device names (Korean/English)
-                if any(kw in name.lower() for kw in ["multi-output", "다중 출력"]):
-                    return name
-    except FileNotFoundError:
-        pass
+    for name in _get_available_outputs():
+        if any(kw in name.lower() for kw in ["multi-output", "다중 출력"]):
+            return name
     return None
+
+
+def _find_builtin_speaker() -> str | None:
+    """Find built-in speaker as fallback."""
+    for name in _get_available_outputs():
+        if any(kw in name.lower() for kw in ["macbook", "built-in", "스피커", "speaker", "내장"]):
+            # Skip multi-output or virtual devices
+            if any(kw in name.lower() for kw in ["multi", "다중", "blackhole", "solstice"]):
+                continue
+            return name
+    return None
+
+
+def _restore_output(previous: str | None) -> None:
+    """Restore output device, with fallback to built-in speaker."""
+    if not previous:
+        return
+
+    # Check if the previous device is still available
+    available = _get_available_outputs()
+    if previous in available:
+        _set_output(previous)
+        return
+
+    # Previous device gone (e.g. monitor disconnected) — fallback to built-in speaker
+    fallback = _find_builtin_speaker()
+    if fallback:
+        _set_output(fallback)
 
 
 class RecordingSession:
@@ -132,12 +165,27 @@ class SystemRecorder:
             raise ValueError(f"Recording {recording_id} not found")
         session.stop()
 
-        # Restore previous output device
-        if self._previous_output:
-            _set_output(self._previous_output)
-            self._previous_output = None
+        # Restore previous output device (fallback to built-in speaker if unavailable)
+        _restore_output(self._previous_output)
+        self._previous_output = None
 
         return session.output_path
 
+    def cleanup(self):
+        """Stop all recordings and restore audio output. Called on server shutdown."""
+        for rid in list(self._recordings.keys()):
+            try:
+                self.stop(rid)
+            except Exception:
+                pass
+        # Safety: if output is still multi-output, restore it
+        current = _get_current_output()
+        if current and any(kw in current.lower() for kw in ["multi-output", "다중 출력"]):
+            _restore_output(self._previous_output)
+            self._previous_output = None
+
 
 recorder = SystemRecorder()
+
+# Ensure audio output is restored even if the server crashes or is killed
+atexit.register(recorder.cleanup)
